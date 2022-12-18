@@ -16,103 +16,78 @@ namespace {
            cube[x][y][z+1];
   }
 
-  void flood_fill(int cube[dim][dim][dim],
-                  int x, int y, int z) {
-    if (cube[x][y][z] == 1) return;
-    if (x < 0 || y < 0 || z < 0 ||
-        x == dim || y == dim || z == dim) return;
-    cube[x][y][z] = 1;
-    flood_fill(cube, x+1, y, z);
-    flood_fill(cube, x-1, y, z);
-    flood_fill(cube, x, y+1, z);
-    flood_fill(cube, x, y-1, z);
-    flood_fill(cube, x, y, z+1);
-    flood_fill(cube, x, y, z-1);
-  }
+  class Cube {
+   public:
+    Cube() : cube_() {}  // default-initialize
+    Cube(const Cube& src) = default;
+    Cube& operator+=(const Cube& src) {
+      ForEach([this, &src](int& val, size_t i, size_t j, size_t k) {
+        cube_[i][j][k] += src.cube_[i][j][k];
+      });
+      return *this;
+    }
 
-  void print(int cube[dim][dim][dim]) {
-    for (size_t i = 0; i < dim; ++i) {
-      for (size_t j = 0; j < dim; ++j) {
-        for (size_t k = 0; k < dim; ++k) {
-          if (cube[i][j][k]) {
-            std::cout << i << " " << j << " " << k << std::endl;
+    void Set(size_t x, size_t y, size_t z) {
+      cube_[x][y][z] = 1;
+    }
+
+    void FloodFill(int x, int y, int z) {
+      if (x < 0 || y < 0 || z < 0 ||
+          x == dim || y == dim || z == dim) return;
+      if (cube_[x][y][z] == 1) return;
+      cube_[x][y][z] = 1;
+      FloodFill(x+1, y, z);
+      FloodFill(x-1, y, z);
+      FloodFill(x, y+1, z);
+      FloodFill(x, y-1, z);
+      FloodFill(x, y, z+1);
+      FloodFill(x, y, z-1);
+    }
+
+    void Invert() {
+      ForEach([](int& val, size_t, size_t, size_t) {
+        val = val ? 0 : 1;
+      });
+    }
+  
+    int SurfaceArea() {
+      int surface_area = 0;
+      ForEach([this, &surface_area](int&, size_t i, size_t j, size_t k) {
+        surface_area += exposed_sides(cube_, i, j, k);
+      });
+      return surface_area;
+    }
+
+   private:
+    int cube_[dim][dim][dim];
+
+    void ForEach(std::function<void(int&, size_t i, size_t j, size_t k)> fn) {
+      for (size_t i = 0; i < dim; ++i) {
+        for (size_t j = 0; j < dim; ++j) {
+          for (size_t k = 0; k < dim; ++k) {
+            fn(cube_[i][j][k], i, j, k);
           }
         }
       }
     }
-  }
 
-  void copy(int src[dim][dim][dim], int dest[dim][dim][dim]) {
-    for (size_t i = 0; i < dim; ++i) {
-      for (size_t j = 0; j < dim; ++j) {
-        for (size_t k = 0; k < dim; ++k) {
-          dest[i][j][k] = src[i][j][k];
-        }
-      }
-    }
-  }
+  };
 
-  void invert(int cube[dim][dim][dim]) {
-    for (size_t i = 0; i < dim; ++i) {
-      for (size_t j = 0; j < dim; ++j) {
-        for (size_t k = 0; k < dim; ++k) {
-          cube[i][j][k] = cube[i][j][k] ? 0 : 1;
-        }
-      }
-    }
-  }
-
-  void addto(int src[dim][dim][dim], int dest[dim][dim][dim]) {
-    for (size_t i = 0; i < dim; ++i) {
-      for (size_t j = 0; j < dim; ++j) {
-        for (size_t k = 0; k < dim; ++k) {
-          if (dest[i][j][k] == 0 && src[i][j][k] == 1) {
-            // std::cout << "copying: " << i << " " << j << " " << k << std::endl;
-            dest[i][j][k] += src[i][j][k];
-          }
-        }
-      }
-    }
-  }
-
-  int surface_area(int cube[dim][dim][dim]) {
-    int surface_area = 0;
-    for (size_t i = 0; i < dim; ++i) {
-      for (size_t j = 0; j < dim; ++j) {
-        for (size_t k = 0; k < dim; ++k) {
-          surface_area += exposed_sides(cube, i, j, k);
-        }
-      }
-    }
-    return surface_area;
-  }
-}
+}  // namespace
 
 int main() {
-
-  int cube[dim][dim][dim];
-  for (size_t i = 0; i < dim; ++i) {
-    for (size_t j = 0; j < dim; ++j) {
-      for (size_t k = 0; k < dim; ++k) {
-        cube[i][j][k] = 0;
-      }
-    }
-  }
+  Cube cube;
 
   int x,y,z;
-  //int mx = 0;
   while (std::cin >> x >> y >> z) {
-    //mx = std::max(x, std::max(y, std::max(z, mx)));
-
-    cube[x][y][z] = 1;
+    cube.Set(x, y, z);
   }
 
-  std::cout << surface_area(cube) << std::endl;
+  std::cout << cube.SurfaceArea() << std::endl;
 
-  int interior[dim][dim][dim];
-  copy(cube, interior);
-  flood_fill(interior, 0, 0, 0);
-  invert(interior);
-  addto(interior, cube);
-  std::cout << surface_area(cube) << std::endl;
+  Cube interior(cube);
+  interior.FloodFill(0, 0, 0);
+  interior.Invert();
+  cube += interior;
+  std::cout << cube.SurfaceArea() << std::endl;
 }
